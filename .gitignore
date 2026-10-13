@@ -20,3 +20,10 @@ Desktop.ini
 
 # 临时下载（Node 安装包等大文件，不入库）
 .tmp-downloads/
+
+# npm / pnpm 本地配置与缓存（含本机绝对路径，不入库）
+.npmrc
+pnpm-workspace.yaml
+.npm-cache/
+.pnpm-store/
+.pnpm-cache/
