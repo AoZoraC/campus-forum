@@ -193,3 +193,11 @@ export async function deletePostAction(postId: string): Promise<PostFormState> {
   revalidatePath("/");
   redirect("/");
 }
+
+/**
+ * 供表单直接调用的包装（签名必须是 FormData，原因见 attachments.ts 里的说明）
+ */
+export async function deletePostFormAction(formData: FormData): Promise<void> {
+  const postId = String(formData.get("postId") ?? "");
+  await deletePostAction(postId);
+}

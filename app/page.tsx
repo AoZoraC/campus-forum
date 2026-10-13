@@ -40,8 +40,10 @@ export default function HomePage({
         <VerifyEmailBanner />
       </Suspense>
 
-      <div className="mx-auto flex w-full max-w-6xl gap-6 px-4 py-6">
-        {/* 左侧：板块导航（读数据库） */}
+      {/* 手机上是竖着排（板块条在上方），宽屏是横着排（板块在左侧）。
+          一个 flex-col md:flex-row 就够 —— 不需要写两套布局。 */}
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 md:flex-row md:gap-6 md:py-6">
+        {/* 板块导航（读数据库） */}
         <Suspense fallback={<SidebarSkeleton />}>
           <SidebarSection searchParams={searchParams} />
         </Suspense>
@@ -89,15 +91,24 @@ async function PostListSection({ searchParams }: { searchParams: SearchParams })
 
 function SidebarSkeleton() {
   return (
-    <div className="hidden w-44 shrink-0 md:block">
-      <div className="mb-3 h-3 w-10 animate-pulse rounded bg-zinc-200" />
-      {[0, 1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="mb-1 h-9 animate-pulse rounded-lg bg-zinc-100"
-        />
-      ))}
-    </div>
+    <>
+      {/* 手机版的骨架：一排胶囊 */}
+      <div className="flex gap-2 md:hidden">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-zinc-200"
+          />
+        ))}
+      </div>
+      {/* 宽屏版的骨架：一列方块 */}
+      <div className="hidden w-44 shrink-0 md:block">
+        <div className="mb-3 h-3 w-10 animate-pulse rounded bg-zinc-200" />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="mb-1 h-9 animate-pulse rounded-lg bg-zinc-100" />
+        ))}
+      </div>
+    </>
   );
 }
 

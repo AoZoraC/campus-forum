@@ -44,6 +44,10 @@ model User {
   // 阶段 3 新增：这个用户的登录会话与一次性令牌
   sessions Session[]
   tokens   VerificationToken[]
+
+  // 阶段 6 新增：点赞与收藏
+  likes     Like[]
+  bookmarks Bookmark[]
 }
 
 // 角色：普通用户 / 管理员（阶段 6 的管理后台要用）
@@ -87,6 +91,10 @@ model Post {
 
   comments    Comment[]
   attachments Attachment[]
+
+  // 阶段 6 新增
+  likes     Like[]
+  bookmarks Bookmark[]
 
   // 「按板块列出最新帖子」是最常用的查询，加索引让它更快
   @@index([boardId, createdAt])
@@ -184,4 +192,54 @@ model VerificationToken {
 enum TokenPurpose {
   EMAIL_VERIFY // 验证邮箱
   PASSWORD_RESET // 重置密码
+}
+
+// ─────────────────────────────────────────────────────────
+// 点赞
+//
+// 为什么不直接在 Post 表加一个 likeCount 字段？
+//
+// 因为那样只能知道「多少个赞」，却不知道「谁赞的」。于是：
+//   · 同一个人狂点十次就是十次赞（无法防重复）
+//   · 刷新页面没法显示「你已赞过」（需要按人去查）
+//   · 没法做「取消赞」（不知道要减掉谁的）
+//
+// 拆成一张表之后，每个赞是一条记录，上面三个问题自然就解决了。
+// 这就是「计数」和「记录」的区别：计数只给结果，记录才给过程。
+// ─────────────────────────────────────────────────────────
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  // 关键约束：同一个人对同一条帖子只能有一条记录。
+  // 把「防重复」交给数据库，而不是指望代码每次都记得检查 ——
+  // 代码可能漏写，约束不会。
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+// ─────────────────────────────────────────────────────────
+// 收藏
+//
+// 结构和 Like 几乎一样，但**没有合并成一张表加个 type 字段**。
+// 因为两者语义不同：点赞是公开的（要显示总数给人看），
+// 收藏是私密的（只有自己看得到）。分开的好处是每个查询都简单 ——
+// 「某帖有多少赞」和「我收藏了哪些」不用每次都带上类型条件。
+//
+// 结构相似但用途不同的东西，未必该塞进一张表。
+// ─────────────────────────────────────────────────────────
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
 }

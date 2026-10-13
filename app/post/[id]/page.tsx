@@ -5,9 +5,11 @@ import { connection } from "next/server";
 import type { Metadata } from "next";
 import SiteHeader from "@/components/SiteHeader";
 import CommentForm from "@/components/CommentForm";
-import { getPostById } from "@/lib/queries";
+import { getPostById, getLikeInfo } from "@/lib/queries";
 import { getCurrentUser } from "@/lib/session";
 import { deleteAttachmentFormAction } from "@/lib/actions/attachments";
+import { deletePostFormAction } from "@/lib/actions/posts";
+import { toggleLikeAction, toggleBookmarkAction } from "@/lib/actions/likes";
 import { formatRelativeTime, formatFileSize } from "@/lib/format";
 
 type Params = Promise<{ id: string }>;
@@ -56,7 +58,10 @@ async function PostContent({ params }: { params: Params }) {
 
   const user = await getCurrentUser();
 
-  // 同上：已经 await connection() 了，这里取「现在」是安全的。
+  // 点赞数 + 「我赞过没有」。这两个一起查，省一次数据库往返。
+  const likeInfo = await getLikeInfo(post.id, user?.id);
+
+  // 同 PostList：已经 await connection() 了，这里取「现在」是安全的。
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
 
@@ -89,9 +94,27 @@ async function PostContent({ params }: { params: Params }) {
             )}
           </div>
 
-          <h1 className="text-xl font-semibold leading-snug tracking-tight text-zinc-900">
-            {post.title}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-xl font-semibold leading-snug tracking-tight text-zinc-900">
+              {post.title}
+            </h1>
+
+            {/* 删除按钮：作者本人或管理员可见。
+                界面上「不显示」只是体验，真正的拦截在
+                lib/actions/posts.ts 的 deletePostAction 里。 */}
+            {user &&
+              (user.id === post.author.id || user.role === "ADMIN") && (
+                <form action={deletePostFormAction} className="shrink-0">
+                  <input type="hidden" name="postId" value={post.id} />
+                  <button
+                    type="submit"
+                    className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 transition hover:bg-red-50 hover:text-red-600"
+                  >
+                    删除本帖
+                  </button>
+                </form>
+              )}
+          </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-zinc-400">
             <span className="font-medium text-zinc-600">
@@ -101,6 +124,48 @@ async function PostContent({ params }: { params: Params }) {
             <span>{formatRelativeTime(post.createdAt, now)}</span>
             <span>·</span>
             <span>{post.viewCount} 浏览</span>
+          </div>
+
+          {/* 点赞与收藏。
+              用表单提交而不是 JS 点击事件，好处是：
+              即使 JavaScript 还没加载完，按钮也能用。 */}
+          <div className="mt-4 flex items-center gap-2">
+            {user ? (
+              <>
+                <form action={toggleLikeAction}>
+                  <input type="hidden" name="postId" value={post.id} />
+                  <button
+                    type="submit"
+                    className={
+                      "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition " +
+                      (likeInfo.likedByMe
+                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                        : "border-zinc-200 text-zinc-600 hover:bg-zinc-50")
+                    }
+                  >
+                    <span>{likeInfo.likedByMe ? "👍" : "👍"}</span>
+                    <span>{likeInfo.likedByMe ? "已赞" : "点赞"}</span>
+                    {likeInfo.count > 0 && (
+                      <span className="text-zinc-400">{likeInfo.count}</span>
+                    )}
+                  </button>
+                </form>
+
+                <form action={toggleBookmarkAction}>
+                  <input type="hidden" name="postId" value={post.id} />
+                  <button
+                    type="submit"
+                    className="flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50"
+                  >
+                    ⭐ 收藏
+                  </button>
+                </form>
+              </>
+            ) : (
+              <span className="text-xs text-zinc-400">
+                登录后可以点赞和收藏（当前 {likeInfo.count} 个赞）
+              </span>
+            )}
           </div>
         </div>
 

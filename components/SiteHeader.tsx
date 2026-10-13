@@ -28,14 +28,18 @@ export default function SiteHeader() {
           </span>
         </Link>
 
-        {/* 搜索框（静态，暂时只是样子） */}
-        <div className="min-w-0 flex-1">
+        {/* 搜索框 —— 现在真的能用了：提交后跳到 /search?q=关键词。
+            用原生表单而不是 JS 事件，是因为这样即使 JavaScript
+            还没加载完，回车也能正常搜索（渐进增强）。
+            注意它的外层也必须是 <form>，否则 name="q" 不会被提交。 */}
+        <form action="/search" className="min-w-0 flex-1">
           <input
             type="search"
+            name="q"
             placeholder="搜索帖子、资源、同学…"
             className="h-9 w-full max-w-md rounded-full border border-zinc-200 bg-zinc-100/70 px-4 text-sm outline-none transition placeholder:text-zinc-400 focus:border-blue-400 focus:bg-white"
           />
-        </div>
+        </form>
 
         {/* 右侧：登录状态（动态） */}
         <nav className="flex shrink-0 items-center gap-2">
@@ -72,28 +76,30 @@ async function UserArea() {
 
   return (
     <>
+      {/* 发帖按钮：手机上也要显示（原来写了 hidden sm:inline-block，
+          结果手机用户根本找不到发帖入口）。移动端用紧凑一点的样式。 */}
       <Link
         href="/post/new"
-        className="hidden rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 sm:inline-block"
+        className="shrink-0 rounded-full bg-blue-600 px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 sm:px-4"
       >
         发帖
       </Link>
 
-      <span className="flex items-center gap-1.5 rounded-full border border-zinc-200 px-2.5 py-1 text-sm">
+      {/* 用户标识：手机上只留圆形的首字头像（省地方），宽屏才显示昵称 */}
+      <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 px-2 py-1 text-sm sm:px-2.5">
         <span className="grid h-5 w-5 place-items-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600">
           {user.name.slice(0, 1)}
         </span>
-        <span className="max-w-20 truncate font-medium text-zinc-700">
+        <span className="hidden max-w-20 truncate font-medium text-zinc-700 sm:inline">
           {user.name}
         </span>
       </span>
 
-      {/* 退出登录用表单提交而不是链接 —— 
-          因为这属于「修改状态」的操作，用 POST 比 GET 恰当。 */}
-      <form action={logoutAction}>
+      {/* 退出：手机上也保留，但要短。用图标式文字省宽度。 */}
+      <form action={logoutAction} className="shrink-0">
         <button
           type="submit"
-          className="rounded-full px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800"
+          className="rounded-full px-2 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 sm:px-3"
         >
           退出
         </button>

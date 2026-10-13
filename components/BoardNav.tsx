@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { getBoards } from "@/lib/queries";
 
-// 左侧板块导航。
+// 板块导航。
 //
-// 阶段 4 的变化：板块不再写死在代码里，而是**从数据库读**。
-// 这意味着以后想加一个「社团活动」板块，只要往数据库里插一行，
-// 导航栏自动就多一项 —— 不用改代码、不用重新部署。
+// ── 阶段 6 的移动端改造 ──
 //
-// 注意这个组件现在是 async 的（要等数据库返回），
-// 所以调用它的地方必须包在 <Suspense> 里。
+// 原来它是 `hidden md:block` —— 意思是手机用户**根本看不到板块导航**。
+// 而同学多半用手机访问，这等于让半个网站的人没法切换板块。
+//
+// 现在改成两套呈现，同一份数据：
+//   · 手机上：横向滚动的胶囊条（占一行，左右滑动）
+//   · 宽屏上：左侧竖直列表（原来那个）
+//
+// 为什么不共用一套？因为这两种形态的布局逻辑完全不同 ——
+// 硬凑成一套只会两边都别扭。数据只有一个来源（数据库），
+// 呈现方式根据屏幕决定，这是响应式设计的正常做法。
 
 export default async function BoardNav({
   activeSlug = "all",
@@ -17,38 +23,71 @@ export default async function BoardNav({
 }) {
   const boards = await getBoards();
 
-  const itemClass = (active: boolean) =>
-    "block rounded-lg px-3 py-2 text-sm transition " +
-    (active
-      ? "bg-blue-50 font-medium text-blue-700"
-      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900");
+  // 全部板块 = 「全部」+ 数据库里的
+  const items = [
+    { slug: "all", name: "全部", description: "所有板块的最新帖子" },
+    ...boards.map((b) => ({
+      slug: b.slug,
+      name: b.name,
+      description: b.description,
+    })),
+  ];
+
+  const href = (slug: string) => (slug === "all" ? "/" : `/?board=${slug}`);
 
   return (
-    <nav className="hidden w-44 shrink-0 md:block">
-      <h2 className="px-3 pb-2 text-xs font-medium tracking-wide text-zinc-400">
-        板块
-      </h2>
+    <>
+      {/* ── 手机：横向滚动的胶囊条 ── */}
+      <nav className="md:hidden">
+        <ul className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {items.map((item) => {
+            const active = item.slug === activeSlug;
+            return (
+              <li key={item.slug} className="shrink-0">
+                <Link
+                  href={href(item.slug)}
+                  className={
+                    "block whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm transition " +
+                    (active
+                      ? "border-blue-200 bg-blue-50 font-medium text-blue-700"
+                      : "border-zinc-200 bg-white text-zinc-600")
+                  }
+                >
+                  {item.name}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
-      <ul className="space-y-0.5">
-        {/* 「全部」是虚拟的 —— 它不是数据库里的一条记录，只是「不筛选」的意思 */}
-        <li>
-          <Link href="/" className={itemClass(activeSlug === "all")}>
-            全部
-          </Link>
-        </li>
-
-        {boards.map((board) => (
-          <li key={board.id}>
-            <Link
-              href={`/?board=${board.slug}`}
-              title={board.description}
-              className={itemClass(board.slug === activeSlug)}
-            >
-              {board.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
+      {/* ── 宽屏：左侧竖直列表 ── */}
+      <nav className="hidden w-44 shrink-0 md:block">
+        <h2 className="px-3 pb-2 text-xs font-medium tracking-wide text-zinc-400">
+          板块
+        </h2>
+        <ul className="space-y-0.5">
+          {items.map((item) => {
+            const active = item.slug === activeSlug;
+            return (
+              <li key={item.slug}>
+                <Link
+                  href={href(item.slug)}
+                  title={item.description}
+                  className={
+                    "block rounded-lg px-3 py-2 text-sm transition " +
+                    (active
+                      ? "bg-blue-50 font-medium text-blue-700"
+                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900")
+                  }
+                >
+                  {item.name}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </>
   );
 }
