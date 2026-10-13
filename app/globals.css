@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/*
+ * 全局样式。
+ *
+ * 两个和旧教程不一样的地方：
+ *
+ * 1. Tailwind v4 没有 tailwind.config.js 了，主题变量直接写在下面的 @theme 块里。
+ *
+ * 2. 字体我们特意没有沿用默认模板的 next/font/google（它要下载 Geist 字体）——
+ *    那需要访问 Google 的服务器，国内经常连不上，会导致启动直接报错。
+ *    这里换成系统自带的字体栈，中文显示反而更自然。
+ */
+
+@theme inline {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+/* 让长段中文读起来舒服一点（中文需要比英文更大的行高） */
+body {
+  line-height: 1.7;
+}

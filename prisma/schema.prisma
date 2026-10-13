@@ -1,0 +1,187 @@
+// 校园汇 · 数据库结构定义（图纸）
+//
+// 这个文件描述「数据长什么样」，Prisma 负责把它变成真正的数据库表。
+//
+// ⚠️ 注意：这是 Prisma 7 的写法，和网上大多数教程（Prisma 6 及以前）不一样。
+//    变化点有两个，都在文件开头，往下看注释。
+//
+// 阅读方法：
+//   model     = 一张表
+//   一行       = 一个列
+//   @relation = 这张表关联到另一张表（相当于 Excel 里两个表用同一个编号对上）
+//   ?         = 该字段可以为空
+
+// 【Prisma 7 变化 1】客户端不再从 @prisma/client 导入，
+// 而是生成到你自己指定的目录里，所以 output 是必填的。
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+// 【Prisma 7 变化 2】连接地址不再写在这里！
+// 写在 schema 里会直接报错：「The datasource property `url` is no longer supported」。
+// 现在地址统一放在项目根目录的 prisma.config.ts 里。
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────
+// 用户
+// ─────────────────────────────────────────────────────────
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique // 唯一，同一个邮箱不能注册两次
+  name          String // 显示给同学看的昵称
+  passwordHash  String // 切记：绝不存明文密码，只存加密后的结果（阶段 3 详讲）
+  emailVerified DateTime? // 为空 = 邮箱还没验证过
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  posts    Post[]
+  comments Comment[]
+
+  // 阶段 3 新增：这个用户的登录会话与一次性令牌
+  sessions Session[]
+  tokens   VerificationToken[]
+}
+
+// 角色：普通用户 / 管理员（阶段 6 的管理后台要用）
+enum Role {
+  USER
+  ADMIN
+}
+
+// ─────────────────────────────────────────────────────────
+// 板块
+// ─────────────────────────────────────────────────────────
+model Board {
+  id          String   @id @default(cuid())
+  slug        String   @unique // 网址里用的英文标识，例如 study
+  name        String // 显示出来的中文名，例如「学习交流」
+  description String
+  order       Int      @default(0) // 决定左侧导航里的排列顺序
+  createdAt   DateTime @default(now())
+
+  posts Post[]
+}
+
+// ─────────────────────────────────────────────────────────
+// 帖子
+// ─────────────────────────────────────────────────────────
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  viewCount Int     @default(0)
+  isPinned  Boolean @default(false) // 置顶
+  isLocked  Boolean @default(false) // 锁定后不能再回复
+
+  boardId  String
+  board    Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  comments    Comment[]
+  attachments Attachment[]
+
+  // 「按板块列出最新帖子」是最常用的查询，加索引让它更快
+  @@index([boardId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────
+// 回复
+// ─────────────────────────────────────────────────────────
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  postId   String
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  // 指向父回复，用来实现「楼中楼」。顶层回复此字段为空。
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────
+// 附件（上传的资源文件）
+//
+// 这里有个设计决定：我们没有单独做一张「资源表」，
+// 而是让资源 = 带附件的帖子。这样「资源分享」板块和别的板块
+// 共用同一套发帖、回复、浏览逻辑，不用维护两套系统。
+// ─────────────────────────────────────────────────────────
+model Attachment {
+  id            String   @id @default(cuid())
+  fileName      String // 原始文件名，例如「高数复习提纲.pdf」
+  fileUrl       String // 文件存放地址
+  fileSize      Int // 字节数
+  mimeType      String? // 文件类型，例如 application/pdf
+  downloadCount Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+// ─────────────────────────────────────────────────────────
+// 登录会话
+//
+// 用户登录成功后，服务器生成一串随机 token 写进浏览器的 cookie，
+// 同时在数据库里记一行。以后每次请求带着 cookie 来，服务器就拿它
+// 查这张表 —— 查得到就是已登录，查不到或已过期就是没登录。
+//
+// 为什么不直接把用户 id 写进 cookie？
+// 因为 cookie 存在用户自己电脑上，是**可以被篡改的**。所以 cookie 里
+// 只能放一串「服务器生成、用户猜不到」的随机值，真正的身份信息
+// 留在服务器的数据库里。这就是「会话」的核心思想。
+// ─────────────────────────────────────────────────────────
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique // 存在浏览器 cookie 里的那串随机值
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime // 过期时间，到了就自动失效
+  createdAt DateTime @default(now())
+
+  // 退出登录时按 token 删；查「我的登录设备」时按 userId 查
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────
+// 一次性令牌（邮箱验证 / 重置密码）
+//
+// 和 Session 的区别：Session 是「持续有效直到过期」，
+// 而这里的令牌**用过一次就作废**（usedAt 记下使用时间）。
+// 想想：如果重置密码的链接可以反复使用，那它一旦被转发出去，
+// 任何人都能改掉那个账号的密码。
+// ─────────────────────────────────────────────────────────
+model VerificationToken {
+  id        String       @id @default(cuid())
+  token     String       @unique
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   TokenPurpose // 这个令牌是用来干嘛的
+  expiresAt DateTime
+  usedAt    DateTime? // 为空 = 还没用过；用过就填上时间
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+}
+
+enum TokenPurpose {
+  EMAIL_VERIFY // 验证邮箱
+  PASSWORD_RESET // 重置密码
+}

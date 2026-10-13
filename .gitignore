@@ -1,29 +1,63 @@
+# ============ 本仓库特有 ============
+
 # 本地 TLS 证书（含本机代理根证书，禁止入库）
 .certs/
 
-# 操作系统
-Thumbs.db
-Desktop.ini
-.DS_Store
-
-# 编辑器 / IDE
-.vscode/
-.idea/
-*.swp
-
-# 环境与密钥
-.env
-.env.local
-
-# 日志
-*.log
-
-# 临时下载（Node 安装包等大文件，不入库）
+# 临时下载（Node 安装包等大文件）
 .tmp-downloads/
 
-# npm / pnpm 本地配置与缓存（含本机绝对路径，不入库）
+# 本机数据库（免安装版 PostgreSQL 的数据文件，几百 MB，绝对不许入库）
+.localdb/
+
+# npm / pnpm 本地配置与缓存（含本机绝对路径）
 .npmrc
 pnpm-workspace.yaml
 .npm-cache/
 .pnpm-store/
 .pnpm-cache/
+.appdata/
+
+# ============ 操作系统 ============
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ============ 编辑器 / IDE ============
+.vscode/
+.idea/
+*.swp
+
+# ============ 环境与密钥 ============
+.env*
+
+# ============ 依赖 ============
+/node_modules
+/.pnp
+.pnp.*
+
+# ============ Next.js ============
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# ============ 测试 ============
+/coverage
+
+# ============ 部署 ============
+.vercel
+
+# ============ 日志 ============
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ============ Prisma ============
+# 生成的客户端代码：每次跑 prisma generate 都会重新生成，不需要入库
+/lib/generated/
+
+# ============ 其它 ============
+*.pem
