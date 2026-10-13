@@ -72,12 +72,12 @@ async function UserArea() {
 
   return (
     <>
-      <span
-        className="hidden rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white sm:inline-block"
-        title="发帖功能将在阶段 4 完成"
+      <Link
+        href="/post/new"
+        className="hidden rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 sm:inline-block"
       >
         发帖
-      </span>
+      </Link>
 
       <span className="flex items-center gap-1.5 rounded-full border border-zinc-200 px-2.5 py-1 text-sm">
         <span className="grid h-5 w-5 place-items-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600">

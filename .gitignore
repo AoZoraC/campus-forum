@@ -55,6 +55,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# ============ 用户上传的文件 ============
+# 存在本地硬盘的上传文件。体积大、属于运行时数据，不入库。
+# 阶段 7 上线会改用云存储（改 lib/storage.ts 一个文件即可）。
+/storage/
+
 # ============ Prisma ============
 # 生成的客户端代码：每次跑 prisma generate 都会重新生成，不需要入库
 /lib/generated/
